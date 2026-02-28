@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="nl-BE">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Werf Inbox - Bouwproject X</title>
+    <!-- TailwindCSS from CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Basic styling to mirror the original mock‑up. */
+        body {
+            background-color: #fcfcfc;
+            color: #1c1917;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        .mail-item {
+            border-left: 3px solid transparent;
+            transition: all 0.15s ease;
+        }
+        .mail-item.active {
+            border-left-color: #f97316;
+            background-color: #fff;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
+        }
+        .mail-item.unread {
+            background-color: #f8fafc;
+        }
+        .fade-in {
+            animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+        .email-body {
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        .app-height {
+            height: calc(100vh - 56px);
+        }
+        .reply-shadow {
+            box-shadow: 0 -10px 25px -5px rgba(0, 0, 0, 0.05);
+        }
+    </style>
+</head>
+<body class="antialiased flex flex-col min-h-screen">
+    <!-- Top Navigation -->
+    <header class="bg-white border-b border-stone-200 h-14 flex items-center px-6 relative z-30">
+        <div class="flex-grow flex items-center gap-3">
+            <div class="w-7 h-7 bg-stone-900 text-orange-500 rounded flex items-center justify-center font-black text-sm">X</div>
+            <h1 class="text-sm font-bold tracking-tight text-stone-800">Bouwproject X <span class="text-stone-400 font-normal mx-2">|</span> <span class="text-stone-500 font-medium">Werf Inbox</span></h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <div id="ai-status" class="invisible flex items-center gap-2 text-[10px] font-bold text-orange-600 uppercase">
+                <span class="flex h-2 w-2 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                </span>
+                AI reageert...
+            </div>
+            <!-- Display a static date here; you could compute this dynamically with JS if desired -->
+            <div class="text-[11px] font-semibold text-stone-400 uppercase tracking-wider bg-stone-50 px-3 py-1 rounded border border-stone-100">
+                28 FEB 2026
+            </div>
+        </div>
+    </header>
+
+    <main class="flex flex-grow app-height overflow-hidden bg-white">
+        <!-- Mail Sidebar -->
+        <aside class="w-[320px] xl:w-[380px] border-r border-stone-200 bg-stone-50/50 flex flex-col">
+            <div class="p-4 border-b border-stone-200 bg-white/80 backdrop-blur flex justify-between items-center">
+                <span class="text-[11px] font-black text-stone-500 uppercase tracking-widest">Berichten</span>
+                <span id="unread-count" class="bg-stone-200 text-stone-600 text-[10px] font-bold px-2 py-0.5 rounded">0</span>
+            </div>
+            <div id="mail-list" class="flex-grow overflow-y-auto">
+                <!-- Dynamically filled by JS -->
+            </div>
+        </aside>
+        <!-- Mail Content -->
+        <section id="mail-detail" class="flex-grow flex flex-col bg-white overflow-hidden relative">
+            <div class="p-20 text-center text-stone-300 h-full flex flex-col justify-center items-center">
+                <svg class="w-12 h-12 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"/></svg>
+                <p class="text-sm font-medium">Selecteer een bericht om te lezen</p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // ====================== CONFIGURATION ======================
+        // Replace with your own Google Gemini API key. To keep the API key out of the code, you can set
+        // window.GEMINI_API_KEY from another script or inline script tag before this file loads.
+        const apiKey = window.GEMINI_API_KEY || "YOUR_API_KEY_HERE";
+        // Choose a stable model. As of early 2026, 'gemini-pro' is a safe default. Check docs for updates.
+        const modelName = "gemini-pro";
+
+        // Example messages. In a real application you would fetch these from a server or database.
+        let messages = [
+            { id: 1, sender: "Dakwerken Peeters", email: "info@peeters-dak.be", subject: "Lek ontdekt Volume 2", date: "Vandaag, 14:22", body: "Beste werfleider,\n\nEr is een tijdelijke dichting losgekomen bij Volume 2 door de wind. Er is waterinfiltratie.\n\nKunnen we morgenochtend extra ploegen inzetten voor herstel?\n\nMet vriendelijke groeten,\n\nMarc Peeters", unread: true, thread: [] },
+            { id: 2, sender: "Holcim Beton", email: "planning@holcim.be", subject: "Vertraging levering Maandag", date: "Vandaag, 09:15", body: "Geachte,\n\nWegens een storing in Grimbergen zal de levering van maandag vertraagd zijn (11:30).\n\nIs dit akkoord voor jullie?\n\nMet vriendelijke groeten,\n\nDe Planning", unread: true, thread: [] },
+            { id: 3, sender: "Janssens Elektro", email: "p.janssens@elektro-j.be", subject: "Kabelgoten +2 gereed", date: "Gisteren, 16:45", body: "Beste,\n\nDe kabelgoten op verdieping +2 zijn volledig geplaatst volgens plan. U kunt de keuringsinstantie inlichten.\n\nMet vriendelijke groeten,\n\nPieter Janssens", unread: false, thread: [] }
+        ];
+
+        /**
+         * Call the Google Gemini API to generate a reply.
+         * When no API key is configured, or if the call fails, return a polite fallback response.
+         * @param {string} prompt The user prompt, including context.
+         * @param {string} senderName The name of the sender for persona context.
+         * @returns {Promise<string>} The AI response text.
+         */
+        async function callGemini(prompt, senderName) {
+            // If apiKey is not set, immediately resolve with fallback.
+            if (!apiKey || apiKey === "YOUR_API_KEY_HERE") {
+                console.warn('Geen API‑sleutel ingesteld. Gebruik window.GEMINI_API_KEY om een sleutel aan te leveren.');
+                return "Bedankt voor je bericht. Ik ga ermee aan de slag en laat je snel iets weten.";
+            }
+            // Compose the URL with the chosen model name.
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+            // Compose a system instruction to set the persona and tone (B1/B2 level as in the original).
+            const systemPrompt = `Je bent ${senderName}, een onderaannemer op een bouwplaats.\n` +
+                `Reageer professioneel maar toegankelijk op de werfleider.\n\n` +
+                `RICHTLIJNEN VOOR TAALGEBRUIK (B1/B2 NIVEAU):\n` +
+                `- Gebruik duidelijke, alledaagse woorden.\n` +
+                `- Vermijd ingewikkelde zinnen en vaktaal die niet algemeen bekend is.\n` +
+                `- Wees direct en to-the-point.\n` +
+                `- Gebruik een actieve vorm (niet "er zal worden gedaan", maar "ik doe dit").\n` +
+                `- Hou het kort en zakelijk.\n` +
+                `- Sluit af met een standaard groet.`;
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+                const result = await response.json();
+                // Extract the first candidate text. If not present, fall back.
+                return result.candidates?.[0]?.content?.parts?.[0]?.text || "Bedankt voor je bericht. Ik ga ermee aan de slag en laat je snel iets weten.";
+            } catch (error) {
+                console.error('Fout bij oproep van Gemini API:', error);
+                return "Bedankt voor je bericht. Ik ga ermee aan de slag en laat je snel iets weten.";
+            }
+        }
+
+        /**
+         * Render the list of mails on the left side. Displays unread count and sets click handlers.
+         */
+        function renderMailList() {
+            const list = document.getElementById('mail-list');
+            const unreadDisplay = document.getElementById('unread-count');
+            let unreadCount = 0;
+            list.innerHTML = messages.map(m => {
+                if (m.unread) unreadCount++;
+                const timePart = m.date.includes(',') ? m.date.split(',')[1] : m.date;
+                return `<div onclick="openMail(${m.id})" class="mail-item p-4 border-b border-stone-200 cursor-pointer hover:bg-white ${m.unread ? 'unread' : ''}" id="mail-item-${m.id}">
+                    <div class="flex justify-between items-center mb-0.5">
+                        <span class="text-[13px] text-stone-900 font-bold truncate">${m.sender}</span>
+                        <span class="text-[10px] text-stone-400 font-medium">${timePart || ''}</span>
+                    </div>
+                    <div class="text-[12px] text-orange-600 font-semibold truncate mb-1">${m.subject}</div>
+                    <div class="text-[11px] text-stone-400 line-clamp-1">${m.body.substring(0, 50)}...</div>
+                </div>`;
+            }).join('');
+            unreadDisplay.innerText = unreadCount;
+        }
+
+        /**
+         * Open a mail by id and render its thread in the right pane. Also updates read/unread status.
+         * @param {number} id Mail identifier.
+         */
+        function openMail(id) {
+            const mail = messages.find(m => m.id === id);
+            mail.unread = false;
+            renderMailList();
+            // Toggle active class on the selected message.
+            document.querySelectorAll('.mail-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`mail-item-${id}`)?.classList.add('active');
+            // Compose the thread HTML.
+            const threadHtml = mail.thread.map(t => {
+                const label = t.role === 'user' ? 'WERFLEIDER (U)' : mail.sender.toUpperCase();
+                const alignmentClass = t.role === 'user' ? 'pl-8' : 'pr-8';
+                const bgClass = t.role === 'user' ? 'bg-orange-50 border-orange-100' : 'bg-stone-50 border-stone-200';
+                return `<div class="mb-6 ${alignmentClass} fade-in">
+                    <div class="text-[9px] font-bold text-stone-400 uppercase mb-2 flex items-center gap-2">
+                        <span>${label}</span>
+                        <div class="h-px flex-grow bg-stone-100"></div>
+                    </div>
+                    <div class="${bgClass} p-4 rounded-xl border text-[13px] email-body text-stone-800 shadow-sm">${t.text}</div>
+                </div>`;
+            }).join('');
+            // Render detail section.
+            document.getElementById('mail-detail').innerHTML = `
+                <div class="flex flex-col h-full overflow-hidden">
+                    <!-- Compact Mail Header -->
+                    <div class="h-16 px-6 border-b border-stone-100 flex justify-between items-center bg-white shrink-0">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-stone-100 text-stone-600 rounded flex items-center justify-center text-xs font-bold">${mail.sender[0]}</div>
+                            <div>
+                                <h3 class="text-sm font-bold text-stone-900">${mail.subject}</h3>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-bold text-stone-500">${mail.sender}</span>
+                                    <span class="text-[10px] text-stone-300 font-medium">${mail.email}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-[10px] font-bold text-stone-300 uppercase tracking-widest">${mail.date}</div>
+                    </div>
+                    <!-- Content Area -->
+                    <div id="thread-container" class="flex-grow overflow-y-auto p-6 scroll-smooth bg-white">
+                        <div class="mb-6 pr-8">
+                            <div class="text-[9px] font-bold text-stone-400 uppercase mb-2 flex items-center gap-2">
+                                <span>${mail.sender.toUpperCase()}</span>
+                                <div class="h-px flex-grow bg-stone-100"></div>
+                            </div>
+                            <div class="bg-stone-50 border border-stone-200 p-4 rounded-xl text-[13px] email-body text-stone-800 shadow-sm">${mail.body}</div>
+                        </div>
+                        ${threadHtml}
+                    </div>
+                    <!-- Reply Area -->
+                    <div class="p-6 border-t border-stone-100 bg-white reply-shadow">
+                        <div class="relative max-w-5xl mx-auto">
+                            <textarea id="reply-text" class="w-full h-40 p-5 pr-32 border border-stone-200 rounded-2xl text-[13px] focus:border-orange-500 focus:ring-4 focus:ring-orange-50 outline-none transition-all resize-none shadow-sm" placeholder="Typ uw bericht aan ${mail.sender}..."></textarea>
+                            <div class="absolute bottom-3 right-3 flex items-center gap-3 bg-white/80 p-1 rounded-lg backdrop-blur">
+                                <button onclick="sendReply(${id})" class="bg-stone-900 text-white text-[11px] font-bold uppercase tracking-widest px-6 py-3 rounded-xl hover:bg-orange-600 transition-all shadow-md flex items-center gap-2">
+                                    Verzenden
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            scrollToBottom();
+        }
+
+        /**
+         * Scroll the thread container to the bottom so the latest message is visible.
+         */
+        function scrollToBottom() {
+            setTimeout(() => {
+                const c = document.getElementById('thread-container');
+                if (c) c.scrollTop = c.scrollHeight;
+            }, 50);
+        }
+
+        /**
+         * Send a reply: push the user's message into the thread, call the AI, then append the response.
+         * @param {number} id Mail identifier.
+         */
+        async function sendReply(id) {
+            const textarea = document.getElementById('reply-text');
+            const text = textarea.value.trim();
+            if (!text) return;
+            const mail = messages.find(m => m.id === id);
+            mail.thread.push({ role: 'user', text: text });
+            openMail(id);
+            // Show AI indicator
+            document.getElementById('ai-status').classList.remove('invisible');
+            // Compose prompt with context: instruct the model to answer briefly in B1/B2 Dutch.
+            const aiReply = await callGemini(`Werfleider zegt: ${text}. Reageer kort en duidelijk in B1/B2 Nederlands.`, mail.sender);
+            // Simulate latency for a smoother UI experience
+            setTimeout(() => {
+                mail.thread.push({ role: 'ai', text: aiReply });
+                document.getElementById('ai-status').classList.add('invisible');
+                openMail(id);
+            }, 800);
+        }
+
+        // Initialize the UI when the page is loaded
+        window.onload = renderMailList;
+    </script>
+</body>
+</html>
